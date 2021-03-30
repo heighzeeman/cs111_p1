@@ -1,0 +1,87 @@
+#!/usr/bin/python3
+
+# This program runs one or more tests as indicated in the file
+# test_cases, and prints out information about any failures.
+#
+# Usage:
+# run_tests [test_case_file]
+# If test_case_file is provided, it name a file containing test case
+# descriptions; otherwise information is read from the file "test_cases".
+#
+# Format of test cases file: one or more blocks of lines, separated
+# by blank lines. Each block consists of one line giving a shell
+# command to invoke (bash) followed by any number of lines of
+# expected output from the command. Instead of including the desired
+# output in the file, you can use a single line containing "@<file>"
+# where <file> is the name of another file containing the desired output.
+
+import locale
+import os
+import subprocess
+import sys
+
+if len(sys.argv) == 2:
+  f = open(sys.argv[1], newline='\n')
+elif len(sys.argv) == 1:
+  f = open("test_cases", newline='\n')
+else:
+    print("Usage: run_tests [test_case_file]")
+    sys.exit(1)
+
+failures = 0
+
+while True:
+    # Skip blank lines and read command
+    while True:
+        command = f.readline();
+        if not command:
+            break
+        if command[0] == '#':
+            continue
+        command = command.rstrip();
+        if command:
+            break
+    if not command:
+        break
+
+    # Read expected output.
+    expected = ""
+    while True:
+        line = f.readline().rstrip();
+        if not line:
+            break
+        expected += line + '\n'
+    if expected[0] == '@':
+        # Read expected output from a file
+        of = open(expected[1:-1], "r", newline='\n')
+        expected = of.read();
+        of.close();
+  
+    # Run the command (with a time limit).
+    print(command)
+    try:
+        result = subprocess.run(["sh", "-c", command], capture_output=True,
+                timeout=10, encoding=locale.getpreferredencoding())
+    except subprocess.TimeoutExpired as e:
+        print("Error: '%s' took too long" % (command))
+        continue
+
+    # Parse and check the results.
+    if result.stderr:
+        print("Error: unexpected error output\n------------------\n%s"
+                % (result.stderr), end="")
+        print("------------------")
+
+    output = "".join(result.stdout.split('\r'))
+    if (output != expected):
+        failures += 1
+        print("Error: expected output\n------------------\n%s" % (expected),
+                end="")
+        print("------------------\nbut actual output was")
+        print("------------------\n%s" % (output), end="")
+        print("------------------")
+
+if failures:
+    print("%d tests failed" % (failures))
+else:
+    print("All tests passed!")
