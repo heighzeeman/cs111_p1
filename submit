@@ -39,6 +39,12 @@ if not match:
 else:
     project = match.group(1)
 
+# Make clean.
+print("Running 'make clean'")
+result = subprocess.run(["make", "clean"])
+if result.returncode != 0:
+      exit(1)
+
 # Check the size of the project directory tree.
 result = subprocess.check_output(["du", "-s"]).decode("utf-8")
 size = int(re.match('(\d*)', result).group(1))
@@ -85,7 +91,7 @@ if not answer in ["y", "yes", "Y", "Yes"]:
 
 # Copy the directory tree.
 os.makedirs(student_dir)
-result = subprocess.run(["cp", "-r", ".", student_dir]);
+result = subprocess.run(["cp", "-r", ".", student_dir])
 if result.returncode != 0:
       print("Couldn't copy files to %s; please ask for help on Piazza"
               % (student_dir))
