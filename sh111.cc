@@ -94,6 +94,8 @@ parse(char *line)
     while (*p) {
         while (isspace(*p))
             p++;
+        if (!*p)
+            break;
         if (isspecial(*p)) {
             if (redirect) {
                 std::cerr << "missing file name for " << redirect
