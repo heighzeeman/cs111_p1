@@ -17,7 +17,7 @@ submit_dir = class_dir + "/submissions"
 user = os.environ['USER']
 
 # Maximum allowable size of submission directory, in KB.
-max_kb = 1000
+max_kb = 10000
 
 # Maximum number of submissions allowed for one student for one project.
 max_submits = 10
