@@ -113,7 +113,7 @@ run_pipeline(pipeline pl)
 			for (std::string& s : pl[i].args) {
 				temp1.push_back((char *)s.c_str());
 			}
-			//temp1.push_back(nullptr);
+			temp1.push_back(nullptr);
 			
 			const std::vector<char*> temp2(temp1);
 			
