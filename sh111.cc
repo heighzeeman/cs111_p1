@@ -92,7 +92,7 @@ run_pipeline(pipeline pl)
 			for (redirect redir : pl[i].redirs) {
 				int file_handler = open(redir.path.c_str(), redir.flags, S_IRUSR & S_IWUSR & S_IRGRP & S_IWGRP & S_IROTH & S_IWOTH);
 				if ((file_handler == -1) || dup2(file_handler, redir.fd) == -1) {
-					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + "for iteration " + std::to_string(i)).c_str());
+					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + " for iteration " + std::to_string(i)).c_str());
 					std::cerr << "Path to redirect: " << redir.path << "  File handler status: " << file_handler << std::endl;
 					_exit(1);
 				}
@@ -113,6 +113,7 @@ run_pipeline(pipeline pl)
 			for (std::string& s : pl[i].args) {
 				temp1.push_back((char *)s.c_str());
 			}
+			temp1.push_back(nullptr);
 			
 			const std::vector<char*> temp2(temp1);
 			
