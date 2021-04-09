@@ -89,7 +89,7 @@ run_pipeline(pipeline pl)
 				_exit(1);
 			}
 			
-			for (redirect redir : pl[i].redirs) {
+			for (redirect& redir : pl[i].redirs) {
 				int file_handler = open(redir.path.c_str(), redir.flags, S_IRUSR & S_IWUSR & S_IRGRP & S_IWGRP & S_IROTH & S_IWOTH);
 				if ((file_handler == -1) || dup2(file_handler, redir.fd) == -1) {
 					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + " for iteration " + std::to_string(i)).c_str());
@@ -102,12 +102,12 @@ run_pipeline(pipeline pl)
 				}
 			}
 			
-			/*for (size_t j = 0; j+1 < pl.size(); j++) {
+			for (size_t j = 0; j+1 < pl.size(); j++) {
 				if (close(pipes[j][0]) == -1 || close(pipes[j][1]) == -1) {
 					perror(("Unable to close pipe "s + std::to_string(j) + " on iteration "s + std::to_string(i)).c_str());
 					_exit(1);
 				}
-			}*/
+			}
 			
 			std::vector<char*> temp1;
 			for (std::string& s : pl[i].args) {
