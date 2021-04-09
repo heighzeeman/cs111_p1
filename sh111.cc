@@ -56,6 +56,8 @@ struct cmd {
 // write "test" to file out.
 using pipeline = std::vector<cmd>;
 
+using namespace std::string_literals;
+
 // This method is invoked after a command line has been parsed; pl describes
 // the subprocesses that must be created, along with any I/O redirections.
 // This method invokes the subprocesses and waits for them to complete
@@ -63,9 +65,85 @@ using pipeline = std::vector<cmd>;
 void
 run_pipeline(pipeline pl)
 {
-    // You have to implement this function
-    std::cerr << "run_pipeline function hasn't been implemented"
-            << std::endl;
+	std::vector<int[2]>	pipes(pl.size()-1);
+	std::vector<pid_t> toWait;
+	int status = 0;
+	
+	// Initialise all pipes first
+	for (size_t i = 0; i+1 < pl.size(); i++) {
+		if (pipe(pipes[i]) != 0) {
+			perror(("Creation of pipe on iteration "s + std::to_string(i)).c_str());
+			exit(1);
+		}
+	}
+	
+	for (size_t i = 0; i < pl.size(); i++) { 
+		pid_t pid = fork();
+		if (pid == 0) {
+			if ((i+1 != pl.size()) && (dup2(pipes[i][1], 1) == -1)) {
+				perror(("dup2: Could not rebind standard output to pipe for iteration "s + std::to_string(i)).c_str());
+				_exit(1);
+			}			
+			if ((i != 0) && (dup2(pipes[i-1][0], 0) == -1)) {
+				perror(("dup2: Could not rebind standard input to pipe for iteration "s + std::to_string(i)).c_str());
+				_exit(1);
+			}
+			
+			for (redirect redir : pl[i].redirs) {
+				int file_handler = open(redir.path.c_str(), redir.flags, S_IRUSR & S_IWUSR & S_IRGRP & S_IWGRP & S_IROTH & S_IWOTH);
+				if ((file_handler == -1) || dup2(file_handler, redir.fd) == -1) {
+					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + "for iteration " + std::to_string(i)).c_str());
+					std::cerr << "Path to redirect: " << redir.path << "  File handler status: " << file_handler << std::endl;
+					_exit(1);
+				}
+				if (close(file_handler) == -1) {
+					perror(("Unable to close file_handler "s + std::to_string(file_handler) + " on iteration "s + std::to_string(i)).c_str());
+					_exit(1);
+				}
+			}
+			
+			for (size_t j = 0; j+1 < pl.size(); j++) {
+				if (close(pipes[j][0]) == -1 || close(pipes[j][1]) == -1) {
+					perror(("Unable to close pipe "s + std::to_string(j) + " on iteration "s + std::to_string(i)).c_str());
+					_exit(1);
+				}
+			}
+			
+			std::vector<char*> temp1;
+			for (std::string& s : pl[i].args) {
+				temp1.push_back((char *)s.c_str());
+			}
+			
+			const std::vector<char*> temp2(temp1);
+			
+			execvp(temp2[0], temp2.data());
+			perror(("Execvp failed on iteration "s + std::to_string(i)).c_str());
+			_exit(1);
+				
+		} else if (pid > 0) {
+			toWait.push_back(pid);
+			
+		} else {
+			perror(("Failed to create child process on iteration "s + std::to_string(i)).c_str());
+			exit(1);
+		}
+	}
+	
+	for (size_t i = 0; i+1 < pl.size(); i++) {
+		if (close(pipes[i][0]) == -1 || close(pipes[i][1]) == -1) {
+			perror(("Unable to close pipe "s + std::to_string(i) + " in parent process"s).c_str());
+			_exit(1);
+		}
+	}
+	
+	for (pid_t curr_pid : toWait) {
+		if (waitpid(curr_pid, &status, 0) == -1) {
+			perror(("Child pid: "s + std::to_string(curr_pid)).c_str());
+			exit(1);
+		}
+	}
+	
+	exit(status);
 }
 
 inline bool
@@ -153,7 +231,7 @@ main()
             std::cout << prompt;
         if (!std::getline(std::cin, line))
             exit(0);
-        pipeline pl = parse(line.data());
+        pipeline pl = parse((char *)line.data());
         if (!pl.empty())
             run_pipeline(std::move(pl));
     }
