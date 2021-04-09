@@ -102,12 +102,12 @@ run_pipeline(pipeline pl)
 				}
 			}
 			
-			for (size_t j = 0; j+1 < pl.size(); j++) {
+			/*for (size_t j = 0; j+1 < pl.size(); j++) {
 				if (close(pipes[j][0]) == -1 || close(pipes[j][1]) == -1) {
 					perror(("Unable to close pipe "s + std::to_string(j) + " on iteration "s + std::to_string(i)).c_str());
 					_exit(1);
 				}
-			}
+			}*/
 			
 			std::vector<char*> temp1;
 			for (std::string& s : pl[i].args) {
