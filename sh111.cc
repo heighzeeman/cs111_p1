@@ -92,7 +92,7 @@ run_pipeline(pipeline pl)
 			}
 			
 			// Next proceed with redirection of standard input and output. Takes precedence over pipes.
-			for (redirect& redir : pl[i].redirs) {
+			for (const redirect& redir : pl[i].redirs) {
 				int file_handler = open(redir.path.c_str(), redir.flags, 0666);	// permissions: rw-rw-rw-
 				if ((file_handler == -1) || dup2(file_handler, redir.fd) == -1) {
 					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + " for iteration " + std::to_string(i)).c_str());
@@ -115,7 +115,7 @@ run_pipeline(pipeline pl)
 			
 			// Reformat std::string arguments into char* for execvp
 			std::vector<char *> temp;
-			for (std::string& s : pl[i].args) {
+			for (const std::string& s : pl[i].args) {
 				temp.push_back(const_cast<char *>(s.c_str()));
 			}
 			temp.push_back(nullptr);	// Absolutely necessary as last argument to execvp
