@@ -65,11 +65,11 @@ using namespace std::string_literals;
 void
 run_pipeline(pipeline pl)
 {
-	std::vector<int[2]>	pipes(pl.size()-1);
-	std::vector<pid_t> toWait;
+	std::vector<int[2]>	pipes(pl.size()-1);	
+	std::vector<pid_t> toWait;	// Child PIDs to wait for later
 	int status = 0;
 	
-	// Initialise all pipes first
+	// Initialise all pipes first before performing assignment in the child processes
 	for (size_t i = 0; i+1 < pl.size(); i++) {
 		if (pipe(pipes[i]) != 0) {
 			perror(("Creation of pipe on iteration "s + std::to_string(i)).c_str());
@@ -77,9 +77,11 @@ run_pipeline(pipeline pl)
 		}
 	}
 	
+	// Initialise a child process for each piped section
 	for (size_t i = 0; i < pl.size(); i++) { 
 		pid_t pid = fork();
 		if (pid == 0) {
+			// Link the standard output and input for the children to the relevant pipes
 			if ((i+1 != pl.size()) && (dup2(pipes[i][1], 1) == -1)) {
 				perror(("dup2: Could not rebind standard output to pipe for iteration "s + std::to_string(i)).c_str());
 				_exit(1);
@@ -89,8 +91,9 @@ run_pipeline(pipeline pl)
 				_exit(1);
 			}
 			
+			// Next proceed with redirection of standard input and output. Takes precedence over pipes.
 			for (redirect& redir : pl[i].redirs) {
-				int file_handler = open(redir.path.c_str(), redir.flags, 0666);//S_ISUID & S_ISGID & S_IRUSR & S_IWUSR & S_IRGRP & S_IWGRP & S_IROTH & S_IWOTH);
+				int file_handler = open(redir.path.c_str(), redir.flags, 0666);	// permissions: rw-rw-rw-
 				if ((file_handler == -1) || dup2(file_handler, redir.fd) == -1) {
 					perror(("Redirection: Could not redirect "s + std::to_string(redir.fd) + " for iteration " + std::to_string(i)).c_str());
 					std::cerr << "Path to redirect: " << redir.path << "  File handler status: " << file_handler << std::endl;
@@ -102,6 +105,7 @@ run_pipeline(pipeline pl)
 				}
 			}
 			
+			// Close all pipes in the child before exec
 			for (size_t j = 0; j+1 < pl.size(); j++) {
 				if (close(pipes[j][0]) == -1 || close(pipes[j][1]) == -1) {
 					perror(("Unable to close pipe "s + std::to_string(j) + " on iteration "s + std::to_string(i)).c_str());
@@ -109,15 +113,17 @@ run_pipeline(pipeline pl)
 				}
 			}
 			
-			std::vector<char*> temp1;
+			// Reformat std::string arguments into char* for execvp
+			std::vector<char *> temp;
 			for (std::string& s : pl[i].args) {
-				temp1.push_back((char *)s.c_str());
+				temp.push_back(const_cast<char *>(s.c_str()));
 			}
-			temp1.push_back(nullptr);
+			temp.push_back(nullptr);	// Absolutely necessary as last argument to execvp
+			char * const *cvptr = temp.data();
 			
-			const std::vector<char*> temp2(temp1);
+			execvp(temp[0], cvptr);
 			
-			execvp(temp2[0], temp2.data());
+			// If exec returned (i.e. had an error), catch it
 			perror(("Execvp failed on iteration "s + std::to_string(i)).c_str());
 			_exit(1);
 				
@@ -130,6 +136,7 @@ run_pipeline(pipeline pl)
 		}
 	}
 	
+	// Close all the pipes in the parent process, since they are used exclusively between children now
 	for (size_t i = 0; i+1 < pl.size(); i++) {
 		if (close(pipes[i][0]) == -1 || close(pipes[i][1]) == -1) {
 			perror(("Unable to close pipe "s + std::to_string(i) + " in parent process"s).c_str());
@@ -137,15 +144,15 @@ run_pipeline(pipeline pl)
 		}
 	}
 	
+	// Wait for all children processes to terminate. On system error, return with error induced by child process.
 	for (pid_t curr_pid : toWait) {
 		if (waitpid(curr_pid, &status, 0) == -1) {
 			perror(("Child pid: "s + std::to_string(curr_pid)).c_str());
-			exit(1);
+			exit(status);
 		}
 	}
-	
-	//exit(status);
 }
+
 
 inline bool
 isspecial(char c)
@@ -232,8 +239,8 @@ main()
             std::cout << prompt;
         if (!std::getline(std::cin, line))
             exit(0);
-		//std::cout << "Parsed in line " << line << std::endl;
-        pipeline pl = parse((char *)line.data());
+			
+        pipeline pl = parse(const_cast<char *>(line.c_str()));
         if (!pl.empty())
             run_pipeline(std::move(pl));
     }
